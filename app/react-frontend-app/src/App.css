@@ -1,0 +1,69 @@
+:root {
+  --main-color: #319795;
+}
+
+
+.countdown {
+  padding-bottom: 20%;
+  font-size: 120px;
+}
+
+.input {
+  background-color: #fff;
+  border: 2px solid var(--main-color);
+  border-radius: 4px;
+  color: #000;
+  text-align: center;
+}
+
+.section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.is-size-1 {
+  font-size: 10px;
+}
+.is-size-2 {
+  font-size: 20px;
+}
+.is-size-3 {
+  font-size: 30px;
+}
+.is-size-4 {
+  font-size: 40px;
+}
+.is-size-5 {
+  font-size: 50px;
+}
+
+.has-text-centered {
+  text-align: center;
+}
+.has-text-primary {
+  color: var(--main-color);
+}
+
+.was-success {
+  color: #26b023;
+}
+.was-failure {
+ color: #b02336;
+}
+
+.current-word {
+  font-size: 30px;
+  color: var(--main-color);
+}
+
+.content {
+  padding-left: 5%;
+  padding-right: 5%;
+}
+.content.dark {
+  background-color: rgba(255,255,255,0.2);
+}
+.content.light {
+  background-color: rgba(75,75,75,0.2);
+}
