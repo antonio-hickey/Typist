@@ -1,48 +1,67 @@
 import { useState, useEffect, useRef } from 'react';
-import randomWords from 'random-words';
 import './App.css'
 import {
   ChakraProvider,
   Box,
   Button,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  Tooltip,
+  SliderThumb,
   VStack,
   Grid,
   theme,
 } from '@chakra-ui/react';
 import { ColorModeSwitcher } from './ColorModeSwitcher';
 
-const NUM_WORDS = 200
+// 1 Minute to find Words per Minute (WPM)
 const SECONDS = 60
 
 function App() {
-  const [words, setWords] = useState([])
-  const [countDown, setCountDown] = useState(SECONDS)
-  const [currInput, setCurrInput] = useState("")
-  const [currWordIndex, setCurrWordIndex] = useState(0)
-  const [currCharIndex, setCurrCharIndex] = useState(-1)
-  const [currChar, setCurrChar] = useState("")
-  const [correct, setCorrect] = useState(0)
-  const [incorrect, setIncorrect] = useState(0)
-  const [status, setStatus] = useState("waiting")
-  const [hidden, setHidden] = useState(false)
-  const textInput = useRef(null)
 
+  const [words, setWords] = useState([]);
+  const [countDown, setCountDown] = useState(SECONDS);
+  const [currInput, setCurrInput] = useState("");
+  const [sliderValue, setSliderValue] = useState(50);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [currWordIndex, setCurrWordIndex] = useState(0);
+  const [currCharIndex, setCurrCharIndex] = useState(-1);
+  const [currChar, setCurrChar] = useState("");
+  const [correct, setCorrect] = useState(0);
+  const [incorrect, setIncorrect] = useState(0);
+  const [status, setStatus] = useState("waiting");
+  const [hidden, setHidden] = useState(false);
+  const textInput = useRef(null);
+
+  // initial words
   useEffect(() => {
-    setWords(generateWords())
+    fetch("http://127.0.0.1:5000/generate-words/" + sliderValue)
+      .then(resp => resp.json()).then(data => {
+        setWords(data);
+      })
   }, [])
 
+  // Make text input the focus when started
   useEffect(() => {
     if (status === 'started') {
       textInput.current.focus()
     }
   }, [status])
 
-  function generateWords() {
-    return new Array(NUM_WORDS).fill(null).map(() => randomWords())
+  // Generate new words
+  function generateWords(val) {
+    setSliderValue(val)
+    fetch("http://127.0.0.1:5000/generate-words/" + val)
+      .then(resp => resp.json()).then(data => {
+        setWords(data);
+      })
   }
+
 
   function start() {
 
+    // Reset variables when finished
     if (status === 'finished') {
       setWords(generateWords())
       setCurrWordIndex(0)
@@ -52,11 +71,15 @@ function App() {
       setCurrChar("")
     }
 
+    // If not already started
     if (status !== 'started') {
       setStatus('started')
+      setShowSlider(false)
       setHidden(true)
       let interval = setInterval(() => {
         setCountDown((prevCountdown) => {
+
+          // When the minute runs out
           if (prevCountdown === 0) {
             clearInterval(interval)
             setStatus('finished')
@@ -73,17 +96,21 @@ function App() {
   }
 
   function handleKeyDown({ keyCode, key }) {
-    // space bar 
+    // space bar
     if (keyCode === 32) {
       checkMatch()
       setCurrInput("")
       setCurrWordIndex(currWordIndex + 1)
       setCurrCharIndex(-1)
-      // backspace
-    } else if (keyCode === 8) {
+    }
+
+    // backspace
+    else if (keyCode === 8) {
       setCurrCharIndex(currCharIndex - 1)
       setCurrChar("")
-    } else {
+    }
+
+    else {
       setCurrCharIndex(currCharIndex + 1)
       setCurrChar(key)
     }
@@ -94,37 +121,46 @@ function App() {
     const doesItMatch = wordToCompare === currInput.trim()
     if (doesItMatch) {
       setCorrect(correct + 1)
-    } else {
+    }
+    else {
       setIncorrect(incorrect + 1)
     }
   }
 
+  // Create className value for current word
   function getWordClass(wordIdx) {
     if (wordIdx === currWordIndex) {
       return 'current-word is-size-4'
     }
   }
 
+  // Create className value for current character
   function getCharClass(wordIdx, charIdx, char) {
+
     if (wordIdx === currWordIndex && charIdx === currCharIndex && currChar && status !== 'finished') {
       if (char === currChar) {
         return 'was-success'
-      } else {
+      }
+      else {
         return 'was-failure'
       }
-    } else if (wordIdx === currWordIndex && currCharIndex >= words[currWordIndex].length) {
+    }
+
+    else if (wordIdx === currWordIndex && currCharIndex >= words[currWordIndex].length) {
       return 'was-failure'
-    } else {
+    }
+    else {
       return ''
     }
   }
 
+  // Store color mode in local storage
   function getContentClass() {
     let colorMode = window.localStorage["chakra-ui-color-mode"]
     return `content ${colorMode}`
   }
 
-
+  // Create "html"
   return (
     <ChakraProvider theme={theme}>
       <Box textAlign="center" fontSize="xl">
@@ -136,6 +172,38 @@ function App() {
                 <h2>{countDown}</h2>
               </div>
             </div>
+            {
+              // why doesn't javascript have an `or` ? lol
+              ["finished", "waiting"].includes(status) ?
+                <Slider
+                  id='slider'
+                  defaultValue={50}
+                  min={10}
+                  max={300}
+                  step={10}
+                  colorScheme='teal'
+                  onChange={(v) => generateWords(v)}
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  disabled={status == "started"}
+                >
+                  <SliderTrack>
+                    <SliderFilledTrack />
+                  </SliderTrack>
+                  <Tooltip
+                    hasArrow
+                    bg='teal'
+                    color='white'
+                    placement='top'
+                    isOpen={showTooltip}
+                    label={`${sliderValue} words`}
+                  >
+                    <SliderThumb boxSize={6} />
+                  </Tooltip>
+                </Slider>
+                : null
+            }
+
             <div className="control is-expanded section">
               <input ref={textInput} disabled={status !== "started"} type="text" className="input" onKeyDown={handleKeyDown} value={currInput} onChange={(e) => setCurrInput(e.target.value)} />
             </div>
