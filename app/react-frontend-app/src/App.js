@@ -74,7 +74,6 @@ function App() {
     // If not already started
     if (status !== 'started') {
       setStatus('started')
-      setShowSlider(false)
       setHidden(true)
       let interval = setInterval(() => {
         setCountDown((prevCountdown) => {
