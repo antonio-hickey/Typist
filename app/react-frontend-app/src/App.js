@@ -33,6 +33,7 @@ function App() {
   const [status, setStatus] = useState("waiting");
   const [hidden, setHidden] = useState(false);
   const textInput = useRef(null);
+  const failedMap = new Map();
 
   // initial words
   useEffect(() => {
@@ -49,21 +50,27 @@ function App() {
     }
   }, [status])
 
-  // Generate new words
+  // Generate initial random array of words
   function generateWords(val) {
     setSliderValue(val)
     fetch("http://127.0.0.1:5000/generate-words/" + val)
       .then(resp => resp.json()).then(data => {
-        setWords(data);
+        setWords(data)
       })
   }
 
+  //Generate array of words that need more work on
+  function generateNewWords(val) {
+    fetch("http://127.0.0.1:5000/generate-words/" + val)
+      .then(resp => resp.json()).then(data => {
+        setWords(data)
+      })
+  }
 
   function start() {
-
     // Reset variables when finished
     if (status === 'finished') {
-      setWords(generateWords())
+      generateNewWords(sliderValue)
       setCurrWordIndex(0)
       setCorrect(0)
       setIncorrect(0)
@@ -135,12 +142,20 @@ function App() {
 
   // Create className value for current character
   function getCharClass(wordIdx, charIdx, char) {
-
     if (wordIdx === currWordIndex && charIdx === currCharIndex && currChar && status !== 'finished') {
       if (char === currChar) {
         return 'was-success'
       }
       else {
+        failedMap.set(charIdx, char)
+        if (!(charIdx in failedMap)) {
+          let requestOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(char)
+          }
+          fetch('http://127.0.0.1:5000/store-failure', requestOptions)
+        }
         return 'was-failure'
       }
     }
@@ -159,6 +174,12 @@ function App() {
     return `content ${colorMode}`
   }
 
+  function sliderText() {
+    return (
+      <h2> Select the number of words: {sliderValue}</h2>
+    )
+  }
+
   // Create "html"
   return (
     <ChakraProvider theme={theme}>
@@ -171,66 +192,87 @@ function App() {
                 <h2>{countDown}</h2>
               </div>
             </div>
-            {
-              // why doesn't javascript have an `or` ? lol
-              ["finished", "waiting"].includes(status) ?
-                <Slider
-                  id='slider'
-                  defaultValue={50}
-                  min={10}
-                  max={300}
-                  step={10}
-                  colorScheme='teal'
-                  onChange={(v) => generateWords(v)}
-                  onMouseEnter={() => setShowTooltip(true)}
-                  onMouseLeave={() => setShowTooltip(false)}
-                  disabled={status == "started"}
-                >
-                  <SliderTrack>
-                    <SliderFilledTrack />
-                  </SliderTrack>
-                  <Tooltip
-                    hasArrow
-                    bg='teal'
-                    color='white'
-                    placement='top'
-                    isOpen={showTooltip}
-                    label={`${sliderValue} words`}
-                  >
-                    <SliderThumb boxSize={6} />
-                  </Tooltip>
-                </Slider>
-                : null
-            }
+
+            <div className="numb-words-slider">
+              {
+                ["finished", "waiting"].includes(status) ?
+                  [
+                    sliderText(),
+                    < Slider
+                      id='slider'
+                      defaultValue={50}
+                      min={10}
+                      max={200}
+                      step={10}
+                      colorScheme='teal'
+                      onChange={(v) => generateWords(v)}
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                      disabled={status === "started"}
+                    >
+                      <SliderTrack>
+                        <SliderFilledTrack />
+                      </SliderTrack>
+                      <Tooltip
+                        hasArrow
+                        bg='teal'
+                        color='white'
+                        placement='top'
+                        isOpen={showTooltip}
+                        label={`${sliderValue} words`}
+                      >
+                        <SliderThumb boxSize={6} />
+                      </Tooltip>
+                    </Slider>
+                  ]
+                  : null
+              }
+            </div>
 
             <div className="control is-expanded section">
-              <input ref={textInput} disabled={status !== "started"} type="text" className="input" onKeyDown={handleKeyDown} value={currInput} onChange={(e) => setCurrInput(e.target.value)} />
+              <input
+                ref={textInput}
+                disabled={status !== "started"}
+                type="text"
+                className="input"
+                onKeyDown={handleKeyDown}
+                value={currInput}
+                onChange={(e) => setCurrInput(e.target.value)}
+                placeholder="Type Here..."
+              />
             </div>
             <div className="section">
-              {!hidden ?
-                <Button
-                  onClick={start}
-                  colorScheme='teal'
-                  spinner='start'
-                >
-                  Start Typing!
-                </Button> : null}
+              {
+                !hidden ?
+                  <Button
+                    onClick={start}
+                    colorScheme='teal'
+                    spinner='start'
+                  >
+                    Start Typing!
+                  </Button>
+                  : null
+              }
             </div>
             {status === 'started' && (
               <div className="section" >
                 <div className="card">
                   <div className="card-content">
                     <div className={getContentClass()}>
-                      {words.map((word, i) => (
-                        <span key={i}>
-                          <span className={getWordClass(i)}>
-                            {word.split("").map((char, idx) => (
-                              <span className={getCharClass(i, idx, char)} key={idx}>{char}</span>
-                            ))}
+                      {
+                        words.map((word, i) => (
+                          <span key={i}>
+                            <span className={getWordClass(i)}>
+                              {
+                                word.split("").map((char, idx) => (
+                                  <span className={getCharClass(i, idx, char)} key={idx}>{char}</span>
+                                ))
+                              }
+                            </span>
+                            <span> </span>
                           </span>
-                          <span> </span>
-                        </span>
-                      ))}
+                        ))
+                      }
                     </div>
                   </div>
                 </div>
@@ -261,7 +303,7 @@ function App() {
           </VStack>
         </Grid>
       </Box>
-    </ChakraProvider>
+    </ChakraProvider >
   );
 }
 
