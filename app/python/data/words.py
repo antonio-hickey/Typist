@@ -1,3 +1,9 @@
+from typing import Dict
+
+# Storing failed characters for each session
+failed_hashmap: Dict[str, int] = {}
+
+# Storing 1000 common words
 word_list = [
     "the",
     "of",
