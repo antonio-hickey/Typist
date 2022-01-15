@@ -8,6 +8,10 @@
   font-size: 120px;
 }
 
+.numb-words-slider {
+  width: 30%;
+}
+
 .input {
   background-color: #fff;
   border: 2px solid var(--main-color);
