@@ -80,7 +80,7 @@ const Home: NextPage = () => {
     )
       .then((resp) => resp.json())
       .then((data) => {
-        setWords(data);
+        setWords(data.words);
       });
   }
 
