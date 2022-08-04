@@ -115,7 +115,7 @@ const Home: NextPage = () => {
             setStatus("finished");
             setHidden(false);
             setCurrInput("");
-            setTimeLeftPerc(100)
+            setTimeLeftPerc(100);
             return 60;
           } else {
             setTimeLeftPerc(() => {
@@ -232,7 +232,11 @@ const Home: NextPage = () => {
             <VStack spacing={8}>
               <div className="flex justify-center items-center">
                 <div className="pb-[20px] text-[120px] text-center text-[#319795]">
-                  <CircularProgress value={timeLeftPerc} color='teal' size='200px'>
+                  <CircularProgress
+                    value={timeLeftPerc}
+                    color="teal"
+                    size="200px"
+                  >
                     <CircularProgressLabel>{countDown}</CircularProgressLabel>
                   </CircularProgress>
                 </div>
