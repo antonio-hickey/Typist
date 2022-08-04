@@ -1,3 +1,33 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.input {
+  background-color: #fff;
+  border: 2px solid var(--main-color);
+  border-radius: 4px;
+  color: #000;
+  text-align: center;
+}
+
+.was-success {
+  color: #26b023;
+}
+.was-failure {
+  color: #b02336;
+}
+
+.card {
+  padding-left: 25%;
+  padding-right: 25%;
+}
+.content {
+  padding-left: 5%;
+  padding-right: 5%;
+}
+.content.dark {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+.content.light {
+  background-color: rgba(75, 75, 75, 0.2);
+}

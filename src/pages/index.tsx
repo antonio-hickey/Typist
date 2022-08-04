@@ -1,77 +1,338 @@
 import type { NextPage } from "next";
 import Head from "next/head";
-import { trpc } from "../utils/trpc";
 
-type TechnologyCardProps = {
-  name: string;
-  description: string;
-  documentation: string;
-};
+import React, { useState, useEffect } from "react";
+import {
+  ChakraProvider,
+  Box,
+  Button,
+  Slider,
+  SliderTrack,
+  SliderFilledTrack,
+  Tooltip,
+  SliderThumb,
+  VStack,
+  Grid,
+  theme,
+} from "@chakra-ui/react";
+import { ColorModeSwitcher } from "./../components/colorModeSwitcher";
 
 const Home: NextPage = () => {
-  const hello = trpc.useQuery(["example.hello", { text: "from tRPC" }]);
+  const [words, setWords] = useState<string[]>([""]);
+  const [countDown, setCountDown] = useState(60);
+  const [currInput, setCurrInput] = useState("");
+  const [sliderValue, setSliderValue] = useState(50);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [currWordIndex, setCurrWordIndex] = useState(0);
+  const [currCharIndex, setCurrCharIndex] = useState(-1);
+  const [currChar, setCurrChar] = useState("");
+  const [correct, setCorrect] = useState(0);
+  const [incorrect, setIncorrect] = useState(0);
+  const [status, setStatus] = useState("waiting");
+  const [hidden, setHidden] = useState(false);
+  const [baseUrl, setBaseUrl] = useState<string>("");
+
+  useEffect(() => {
+    /*
+      Set the base url
+      TODO:
+        refactor how we do this.
+    */
+    setBaseUrl(window.location.href);
+  }, []);
+
+  useEffect(() => {
+    /*
+      Initialize item in session storage for keeping
+      track of characters the user failed.
+    */
+    sessionStorage.setItem("failedChars", "");
+  }, []);
+
+  function setInputFocus(input: HTMLInputElement | null) {
+    /* Sets the text input to focus */
+    if (typeof input !== null && status === "started") {
+      input?.focus();
+    }
+  }
+
+  function generateWords(val: number) {
+    /* Generate initial random array of words */
+    fetch(baseUrl + "/api/words/generate?n=" + val)
+      .then((resp) => resp.json())
+      .then((data) => {
+        setWords(data.words);
+      });
+  }
+
+  function generateNewWords(val: number) {
+    /* Generate array of words that need more work on */
+
+    let failedChars = new Set(
+      sessionStorage.getItem("failedChars")?.split(",")
+    );
+    fetch(
+      baseUrl +
+        "/api/words/generate?chars=" +
+        Array.from(failedChars).join(",").slice(0, -1) +
+        "&n=" +
+        val
+    )
+      .then((resp) => resp.json())
+      .then((data) => {
+        setWords(data.words);
+      });
+  }
+
+  function start() {
+    /* Starts a new round of words */
+
+    if (status === "finished") {
+      if (sessionStorage.getItem("failedChars") == "") {
+        generateWords(sliderValue);
+      } else {
+        generateNewWords(sliderValue);
+      }
+      setCurrWordIndex(0);
+      setCorrect(0);
+      setIncorrect(0);
+      setCurrCharIndex(-1);
+      setCurrChar("");
+    }
+
+    if (status !== "started") {
+      generateWords(sliderValue);
+      setStatus("started");
+      setHidden(true);
+      let interval = setInterval(() => {
+        setCountDown((prevCountdown) => {
+          // When the minute runs out
+          if (prevCountdown === 0) {
+            clearInterval(interval);
+            setStatus("finished");
+            setHidden(false);
+            setCurrInput("");
+            return 60;
+          } else {
+            return prevCountdown - 1;
+          }
+        });
+      }, 1000);
+    }
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    /* Handles logic on key pressed down */
+
+    // space bar
+    if (event.keyCode === 32) {
+      checkMatch();
+      setCurrInput("");
+      setCurrWordIndex(currWordIndex + 1);
+      setCurrCharIndex(-1);
+    }
+
+    // backspace
+    else if (event.keyCode === 8) {
+      setCurrCharIndex(currCharIndex - 1);
+      setCurrChar("");
+    } else {
+      setCurrCharIndex(currCharIndex + 1);
+      setCurrChar(event.key);
+    }
+  }
+
+  function checkMatch() {
+    /* Checks if the word matches the correct word */
+    if (words[currWordIndex] === currInput.trim()) {
+      setCorrect(correct + 1);
+    } else {
+      setIncorrect(incorrect + 1);
+    }
+  }
+
+  function getWordClass(wordIdx: number) {
+    /* Create className value for current word */
+
+    if (wordIdx === currWordIndex) {
+      return "text-[30px] text-[#319795]";
+    }
+  }
+
+  function getCharClass(
+    wordIdx: number,
+    charIdx: number,
+    char: string
+  ): string {
+    /* Create className value for current character */
+
+    if (
+      wordIdx === currWordIndex &&
+      charIdx === currCharIndex &&
+      currChar &&
+      status !== "finished"
+    ) {
+      if (char === currChar) {
+        return "was-success";
+      } else {
+        if (window.sessionStorage.getItem("failedChars") == "") {
+          window.sessionStorage.setItem("failedChars", char + ",");
+        } else {
+          window.sessionStorage.setItem(
+            "failedChars",
+            window.sessionStorage.getItem("failedChars") + char + ","
+          );
+        }
+
+        return "was-failure";
+      }
+    } else if (
+      wordIdx === currWordIndex &&
+      currCharIndex >= words[currWordIndex]!.length
+    ) {
+      return "was-failure";
+    } else {
+      return "";
+    }
+  }
+
+  function getContentClass() {
+    /* Sets the color of words content background based on color mode */
+    var colorMode = window.localStorage["chakra-ui-color-mode"];
+    return `content ${colorMode}`;
+  }
+
+  function sliderText() {
+    /* Sets the number of words slider text value */
+    return <h2> Select the number of words: {sliderValue}</h2>;
+  }
 
   return (
     <>
       <Head>
-        <title>Create T3 App</title>
-        <meta name="description" content="Generated by create-t3-app" />
+        <title>Typist</title>
+        <meta
+          name="description"
+          content="App to learn fast and accurate typing."
+        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="container mx-auto flex flex-col items-center justify-center h-screen p-4">
-        <h1 className="text-5xl md:text-[5rem] leading-normal font-extrabold text-gray-700">
-          Create <span className="text-purple-300">T3</span> App
-        </h1>
-        <p className="text-2xl text-gray-700">This stack uses:</p>
-        <div className="grid gap-3 pt-3 mt-3 text-center md:grid-cols-2 lg:w-2/3">
-          <TechnologyCard
-            name="NextJS"
-            description="The React framework for production"
-            documentation="https://nextjs.org/"
-          />
-          <TechnologyCard
-            name="TypeScript"
-            description="Strongly typed programming language that builds on JavaScript, giving you better tooling at any scale"
-            documentation="https://www.typescriptlang.org/"
-          />
-          <TechnologyCard
-            name="TailwindCSS"
-            description="Rapidly build modern websites without ever leaving your HTML"
-            documentation="https://tailwindcss.com/"
-          />
-          <TechnologyCard
-            name="tRPC"
-            description="End-to-end typesafe APIs made easy"
-            documentation="https://trpc.io/"
-          />
-        </div>
-        <div className="pt-6 text-2xl text-blue-500 flex justify-center items-center w-full">
-          {hello.data ? <p>{hello.data.greeting}</p> : <p>Loading..</p>}
-        </div>
-      </main>
-    </>
-  );
-};
+      <ChakraProvider theme={theme}>
+        <Box textAlign="center" fontSize="xl">
+          <Grid minH="100vh" p={3}>
+            <ColorModeSwitcher justifySelf="flex-end" aria-label="test" />
+            <VStack spacing={8}>
+              <div className="flex justify-center items-center">
+                <div className="pb-[20px] text-[120px] text-center text-[#319795]">
+                  <h2>{countDown}</h2>
+                </div>
+              </div>
 
-const TechnologyCard = ({
-  name,
-  description,
-  documentation,
-}: TechnologyCardProps) => {
-  return (
-    <section className="flex flex-col justify-center p-6 duration-500 border-2 border-gray-500 rounded shadow-xl motion-safe:hover:scale-105">
-      <h2 className="text-lg text-gray-700">{name}</h2>
-      <p className="text-sm text-gray-600">{description}</p>
-      <a
-        className="mt-3 text-sm underline text-violet-500 decoration-dotted underline-offset-2"
-        href={documentation}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Documentation
-      </a>
-    </section>
+              <div className="w-15">
+                {["finished", "waiting"].includes(status)
+                  ? [
+                      sliderText(),
+                      <Slider
+                        key="numberOfWordsSlider"
+                        id="slider"
+                        defaultValue={50}
+                        min={10}
+                        max={200}
+                        step={10}
+                        colorScheme="teal"
+                        onChange={(v) => setSliderValue(v)}
+                        onMouseEnter={() => setShowTooltip(true)}
+                        onMouseLeave={() => setShowTooltip(false)}
+                        isDisabled={status === "started"}
+                      >
+                        <SliderTrack>
+                          <SliderFilledTrack />
+                        </SliderTrack>
+                        <Tooltip
+                          hasArrow
+                          bg="teal"
+                          color="white"
+                          placement="top"
+                          isOpen={showTooltip}
+                          label={`${sliderValue} words`}
+                        >
+                          <SliderThumb boxSize={6} />
+                        </Tooltip>
+                      </Slider>,
+                    ]
+                  : null}
+              </div>
+
+              <div className="flex justify-center items-center">
+                <input
+                  ref={(e) => setInputFocus(e)}
+                  disabled={status !== "started"}
+                  type="text"
+                  className="input"
+                  onKeyDown={(keyEvent) => handleKeyDown(keyEvent)}
+                  value={currInput}
+                  onChange={(e) => setCurrInput(e.target.value)}
+                  placeholder="Type Here..."
+                />
+              </div>
+              <div className="flex justify-center items-center">
+                {!hidden ? (
+                  <Button onClick={start} colorScheme="teal">
+                    Start Typing!
+                  </Button>
+                ) : null}
+              </div>
+              {status === "started" && (
+                <div className="flex justify-center items-center">
+                  <div className="card">
+                    <div className="card-content">
+                      <div className={getContentClass()}>
+                        {words.map((word, i) => (
+                          <span key={i}>
+                            <span className={getWordClass(i)}>
+                              {word.split("").map((char, idx) => (
+                                <span
+                                  className={getCharClass(i, idx, char)}
+                                  key={idx}
+                                >
+                                  {char}
+                                </span>
+                              ))}
+                            </span>
+                            <span> </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {status === "finished" && (
+                <div className="flex justify-center items-center">
+                  <div className="columns">
+                    <div className="text-center">
+                      <p className="text-base">Words per minute:</p>
+                      <p className="text-[#319795] text-lg">{correct}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base">Accuracy:</p>
+                      {correct !== 0 ? (
+                        <p className="text-[#319795] text-lg">
+                          {Math.round((correct / (correct + incorrect)) * 100)}%
+                        </p>
+                      ) : (
+                        <p className="text-[#319795] text-lg">0%</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </VStack>
+          </Grid>
+        </Box>
+      </ChakraProvider>
+    </>
   );
 };
 
