@@ -1,7 +1,7 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ChakraProvider,
   Box,
@@ -30,7 +30,16 @@ const Home: NextPage = () => {
   const [incorrect, setIncorrect] = useState(0);
   const [status, setStatus] = useState("waiting");
   const [hidden, setHidden] = useState(false);
-  const textInput = useRef<any>(null);
+  const [baseUrl, setBaseUrl] = useState<string>("");
+
+  useEffect(() => {
+    /*
+      Set the base url
+      TODO:
+        refactor how we do this.
+    */
+    setBaseUrl(window.location.href);
+  }, []);
 
   useEffect(() => {
     /*
@@ -40,16 +49,16 @@ const Home: NextPage = () => {
     sessionStorage.setItem("failedChars", "");
   }, []);
 
-  useEffect(() => {
-    /* Make text input the focus when started */
-    if (status === "started") {
-      textInput?.current?.focus();
+  function setInputFocus(input: HTMLInputElement | null) {
+    /* Sets the text input to focus */
+    if (typeof input !== null && status === "started") {
+      input?.focus();
     }
-  }, [status]);
+  }
 
   function generateWords(val: number) {
     /* Generate initial random array of words */
-    fetch("http://localhost:3000/api/words/generate?n=" + val)
+    fetch(baseUrl + "/api/words/generate?n=" + val)
       .then((resp) => resp.json())
       .then((data) => {
         setWords(data.words);
@@ -63,7 +72,8 @@ const Home: NextPage = () => {
       sessionStorage.getItem("failedChars")?.split(",")
     );
     fetch(
-      "http://localhost:3000/api/words/generate?chars=" +
+      baseUrl +
+        "/api/words/generate?chars=" +
         Array.from(failedChars).join(",").slice(0, -1) +
         "&n=" +
         val
@@ -256,7 +266,7 @@ const Home: NextPage = () => {
 
               <div className="flex justify-center items-center">
                 <input
-                  ref={textInput}
+                  ref={(e) => setInputFocus(e)}
                   disabled={status !== "started"}
                   type="text"
                   className="input"
