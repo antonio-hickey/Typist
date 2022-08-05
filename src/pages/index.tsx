@@ -35,6 +35,7 @@ const Home: NextPage = () => {
   const [baseUrl, setBaseUrl] = useState<string>("");
   const [timeLeftPerc, setTimeLeftPerc] = useState(100);
 
+
   useEffect(() => {
     /*
       Set the base url
@@ -234,7 +235,8 @@ const Home: NextPage = () => {
                 <div className="pb-[20px] text-[120px] text-center text-[#319795]">
                   <CircularProgress
                     value={timeLeftPerc}
-                    color="teal"
+                    trackColor={"RGBA(0, 0, 0, 0.34)"}
+                    color="#319795"
                     size="200px"
                   >
                     <CircularProgressLabel>{countDown}</CircularProgressLabel>
