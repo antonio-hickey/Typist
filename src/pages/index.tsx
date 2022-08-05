@@ -35,7 +35,6 @@ const Home: NextPage = () => {
   const [baseUrl, setBaseUrl] = useState<string>("");
   const [timeLeftPerc, setTimeLeftPerc] = useState(100);
 
-
   useEffect(() => {
     /*
       Set the base url
