@@ -14,6 +14,8 @@ import {
   VStack,
   Grid,
   theme,
+  CircularProgress,
+  CircularProgressLabel,
 } from "@chakra-ui/react";
 import { ColorModeSwitcher } from "./../components/colorModeSwitcher";
 
@@ -31,6 +33,7 @@ const Home: NextPage = () => {
   const [status, setStatus] = useState("waiting");
   const [hidden, setHidden] = useState(false);
   const [baseUrl, setBaseUrl] = useState<string>("");
+  const [timeLeftPerc, setTimeLeftPerc] = useState(100);
 
   useEffect(() => {
     /*
@@ -112,8 +115,12 @@ const Home: NextPage = () => {
             setStatus("finished");
             setHidden(false);
             setCurrInput("");
+            setTimeLeftPerc(100);
             return 60;
           } else {
+            setTimeLeftPerc(() => {
+              return ((prevCountdown - 1) / 60) * 100;
+            });
             return prevCountdown - 1;
           }
         });
@@ -225,7 +232,14 @@ const Home: NextPage = () => {
             <VStack spacing={8}>
               <div className="flex justify-center items-center">
                 <div className="pb-[20px] text-[120px] text-center text-[#319795]">
-                  <h2>{countDown}</h2>
+                  <CircularProgress
+                    value={timeLeftPerc}
+                    trackColor={"RGBA(0, 0, 0, 0.34)"}
+                    color="#319795"
+                    size="200px"
+                  >
+                    <CircularProgressLabel>{countDown}</CircularProgressLabel>
+                  </CircularProgress>
                 </div>
               </div>
 
