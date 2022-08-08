@@ -173,9 +173,10 @@ const Home: NextPage = () => {
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     /* Handles logic on key pressed down */
+    var charCode = event.which ? event.which : event.keyCode;
 
     // space bar
-    if (event.keyCode === 32) {
+    if (charCode === 32) {
       checkMatch();
       setCurrInput("");
       setCurrWordIndex(currWordIndex + 1);
@@ -183,7 +184,7 @@ const Home: NextPage = () => {
     }
 
     // backspace
-    else if (event.keyCode === 8) {
+    else if (charCode === 8) {
       setCurrCharIndex(currCharIndex - 1);
       setCurrChar("");
     } else {
