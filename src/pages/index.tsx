@@ -37,7 +37,7 @@ interface gitRepoData {
 }
 
 const Home: NextPage = () => {
-  const [words, setWords] = useState<string[]>([""]);
+  const [words, setWords] = useState<string[]>([]);
   const [countDown, setCountDown] = useState(60);
   const [currInput, setCurrInput] = useState("");
   const [sliderValue, setSliderValue] = useState(50);
@@ -60,7 +60,10 @@ const Home: NextPage = () => {
         refactor how we do this.
     */
     setBaseUrl(window.location.href);
-  }, []);
+    if (words.length == 0) {
+      generateWords(sliderValue);
+    }
+  }, [sliderValue]);
 
   useEffect(() => {
     /*
@@ -132,11 +135,6 @@ const Home: NextPage = () => {
     /* Starts a new round of words */
 
     if (status === "finished") {
-      if (sessionStorage.getItem("failedChars") == "") {
-        generateWords(sliderValue);
-      } else {
-        generateNewWords(sliderValue);
-      }
       setCurrWordIndex(0);
       setCorrect(0);
       setIncorrect(0);
@@ -145,13 +143,17 @@ const Home: NextPage = () => {
     }
 
     if (status !== "started") {
-      generateWords(sliderValue);
       setStatus("started");
       setHidden(true);
       let interval = setInterval(() => {
         setCountDown((prevCountdown) => {
           // When the minute runs out
           if (prevCountdown === 0) {
+            if (sessionStorage.getItem("failedChars") == "") {
+              generateWords(sliderValue);
+            } else {
+              generateNewWords(sliderValue);
+            }
             clearInterval(interval);
             setStatus("finished");
             setHidden(false);
