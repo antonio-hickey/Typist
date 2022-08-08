@@ -29,6 +29,7 @@ import { FaGithub } from "react-icons/fa";
 import { Octokit } from "@octokit/core";
 
 interface gitRepoData {
+  commiter: string;
   avatar: string;
   hash: string;
   message: string;
@@ -81,6 +82,7 @@ const Home: NextPage = () => {
       );
       if (response !== null) {
         setLastCommitData({
+          commiter: response.data[0]?.author?.html_url!,
           message: response.data[0]?.commit.message!,
           hash: response.data[0]?.sha!,
           avatar: response.data[0]?.author?.avatar_url!,
@@ -415,11 +417,13 @@ const Home: NextPage = () => {
       <footer className="bg-darkBgAlpha text-center">
         <Stack direction={"row"} className="!text-center px-5 pt-7 pb-3">
           <Text className="pl-5">Last Commit:</Text>
-          <Avatar
-            src={lastCommitData?.avatar}
-            size="sm"
-            className="!mt-[-0.2rem]"
-          />
+          <a href={lastCommitData?.commiter}>
+            <Avatar
+              src={lastCommitData?.avatar}
+              size="sm"
+              className="!mt-[-0.2rem]"
+            />
+          </a>
           <Badge colorScheme={"teal"} className="h-5 !mt-[0.17rem] !lowercase">
             <a href={lastCommitData?.url}>{lastCommitData?.hash.slice(0, 7)}</a>
           </Badge>
