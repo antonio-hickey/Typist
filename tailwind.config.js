@@ -1,9 +1,15 @@
 /** @type {import('tailwindcss').Config} */
-
 module.exports = {
-  content: ["./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./src/pages/**/*.{js,ts,jsx,tsx}",
+    "./src/components/**/*.{js,ts,jsx,tsx}",
+  ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        darkBgAlpha: "rgba(26, 32, 44, 0.85)",
+      },
+    },
   },
   plugins: [],
 };

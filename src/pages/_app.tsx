@@ -4,9 +4,38 @@ import type { AppRouter } from "../server/router";
 import type { AppType } from "next/dist/shared/lib/utils";
 import superjson from "superjson";
 import "../styles/globals.css";
+import { ChakraProvider, extendTheme } from "@chakra-ui/react";
+
+const colors = {
+  solidteal: {
+    100: "#319795",
+    200: "#319795",
+    300: "#319795",
+    400: "#319795",
+    500: "#319795",
+    600: "#319795",
+    700: "#319795",
+    800: "#319795",
+  },
+  btnteal: {
+    200: "#319795",
+    300: "#2b7978",
+  },
+};
+
+const config = {
+  initialColorMode: "dark",
+  useSystemColorMode: false,
+};
+
+const theme = extendTheme({ colors, config });
 
 const MyApp: AppType = ({ Component, pageProps }) => {
-  return <Component {...pageProps} />;
+  return (
+    <ChakraProvider theme={theme}>
+      <Component {...pageProps} />
+    </ChakraProvider>
+  );
 };
 
 const getBaseUrl = () => {
