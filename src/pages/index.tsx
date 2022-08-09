@@ -187,7 +187,10 @@ const Home: NextPage = () => {
     else if (charCode === 8) {
       setCurrCharIndex(currCharIndex - 1);
       setCurrChar("");
-    } else {
+    } 
+    
+    // a-z or '
+    else if ((charCode>64 && charCode<91) || charCode === 222) {
       setCurrCharIndex(currCharIndex + 1);
       setCurrChar(event.key);
     }
