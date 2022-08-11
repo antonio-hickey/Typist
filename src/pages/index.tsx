@@ -185,7 +185,7 @@ const Home: NextPage = () => {
 
     // backspace
     else if (charCode === 8) {
-      setCurrCharIndex(currCharIndex - 1);
+      setCurrCharIndex(Math.max(-1, currCharIndex - 1));
       setCurrChar("");
     }
 
