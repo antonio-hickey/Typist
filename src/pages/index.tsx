@@ -187,9 +187,17 @@ const Home: NextPage = () => {
     else if (charCode === 8) {
       setCurrCharIndex(currCharIndex - 1);
       setCurrChar("");
-    } else {
+    }
+
+    // a-z or '
+    else if ((charCode > 64 && charCode < 91) || charCode === 222) {
       setCurrCharIndex(currCharIndex + 1);
       setCurrChar(event.key);
+    }
+
+    // out of scope
+    else {
+      event.preventDefault();
     }
   }
 
@@ -321,7 +329,7 @@ const Home: NextPage = () => {
                         max={200}
                         step={10}
                         colorScheme="solidteal"
-                        onChange={(v) => setSliderValue(v)}
+                        onChange={(v: number) => setSliderValue(v)}
                         onMouseEnter={() => setShowTooltip(true)}
                         onMouseLeave={() => setShowTooltip(false)}
                         isDisabled={status === "started"}
