@@ -2,6 +2,7 @@
 import { withTRPC } from "@trpc/next";
 import type { AppRouter } from "../server/router";
 import type { AppType } from "next/dist/shared/lib/utils";
+import { SessionProvider } from "next-auth/react";
 import superjson from "superjson";
 import "../styles/globals.css";
 import { ChakraProvider, extendTheme } from "@chakra-ui/react";
@@ -30,10 +31,15 @@ const config = {
 
 const theme = extendTheme({ colors, config });
 
-const MyApp: AppType = ({ Component, pageProps }) => {
+const MyApp: AppType = ({
+  Component,
+  pageProps: { session, ...pageProps },
+}) => {
   return (
     <ChakraProvider theme={theme}>
-      <Component {...pageProps} />
+      <SessionProvider session={session}>
+        <Component {...pageProps} />
+      </SessionProvider>
     </ChakraProvider>
   );
 };
