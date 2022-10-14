@@ -1,9 +1,22 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 
+import { useSession, signIn, signOut } from "next-auth/react";
+import { User } from "@prisma/client";
+
 import React, { useState, useEffect } from "react";
 import {
-  ChakraProvider,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
   Box,
   Button,
   Slider,
@@ -12,13 +25,42 @@ import {
   Tooltip,
   SliderThumb,
   VStack,
-  Grid,
-  theme,
+  CircularProgress,
+  CircularProgressLabel,
+  Spacer,
+  Stack,
+  Icon,
+  Text,
+  Badge,
+  Avatar,
+  Center,
+  Divider,
+  IconButton,
+  useDisclosure,
+  Table,
+  Thead,
+  Tbody,
+  Tfoot,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
 } from "@chakra-ui/react";
-import { ColorModeSwitcher } from "./../components/colorModeSwitcher";
+
+import { FaGithub } from "react-icons/fa";
+import { Octokit } from "@octokit/core";
+
+interface gitRepoData {
+  commiter: string;
+  avatar: string;
+  hash: string;
+  message: string;
+  url: string;
+}
 
 const Home: NextPage = () => {
-  const [words, setWords] = useState<string[]>([""]);
+  const { data: session } = useSession();
+  const [words, setWords] = useState<string[]>([]);
   const [countDown, setCountDown] = useState(60);
   const [currInput, setCurrInput] = useState("");
   const [sliderValue, setSliderValue] = useState(50);
@@ -31,23 +73,14 @@ const Home: NextPage = () => {
   const [status, setStatus] = useState("waiting");
   const [hidden, setHidden] = useState(false);
   const [baseUrl, setBaseUrl] = useState<string>("");
-
-  useEffect(() => {
-    /*
-      Set the base url
-      TODO:
-        refactor how we do this.
-    */
-    setBaseUrl(window.location.href);
-  }, []);
-
-  useEffect(() => {
-    /*
-      Initialize item in session storage for keeping
-      track of characters the user failed.
-    */
-    sessionStorage.setItem("failedChars", "");
-  }, []);
+  const [timeLeftPerc, setTimeLeftPerc] = useState(100);
+  const [lastCommitData, setLastCommitData] = useState<gitRepoData>();
+  const [leaderboard, setLeaderboard] = useState<User[] | null>(null);
+  const {
+    isOpen: isLeaderboardOpen,
+    onOpen: onLeaderboardOpen,
+    onClose: onLeaderboardClose,
+  } = useDisclosure();
 
   function setInputFocus(input: HTMLInputElement | null) {
     /* Sets the text input to focus */
@@ -55,6 +88,24 @@ const Home: NextPage = () => {
       input?.focus();
     }
   }
+
+  const updateHighScore = (userId: string, highScore: number) => {
+    fetch(baseUrl + "/api/score/update", {
+      method: "post",
+      body: JSON.stringify({
+        userId: userId,
+        highScore: highScore,
+      }),
+    });
+  };
+
+  const getLeaderboard = () => {
+    fetch(baseUrl + "/api/score/leaderboard")
+      .then((resp) => resp.json())
+      .then((data) => {
+        setLeaderboard(data.users);
+      });
+  };
 
   function generateWords(val: number) {
     /* Generate initial random array of words */
@@ -88,11 +139,6 @@ const Home: NextPage = () => {
     /* Starts a new round of words */
 
     if (status === "finished") {
-      if (sessionStorage.getItem("failedChars") == "") {
-        generateWords(sliderValue);
-      } else {
-        generateNewWords(sliderValue);
-      }
       setCurrWordIndex(0);
       setCorrect(0);
       setIncorrect(0);
@@ -101,13 +147,17 @@ const Home: NextPage = () => {
     }
 
     if (status !== "started") {
-      generateWords(sliderValue);
       setStatus("started");
       setHidden(true);
       let interval = setInterval(() => {
         setCountDown((prevCountdown) => {
           // When the minute runs out
           if (prevCountdown === 0) {
+            if (sessionStorage.getItem("failedChars") == "") {
+              generateWords(sliderValue);
+            } else {
+              generateNewWords(sliderValue);
+            }
             clearInterval(interval);
             setStatus("finished");
             setHidden(false);
@@ -123,9 +173,10 @@ const Home: NextPage = () => {
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     /* Handles logic on key pressed down */
+    var charCode = event.which ? event.which : event.keyCode;
 
     // space bar
-    if (event.keyCode === 32) {
+    if (charCode === 32) {
       checkMatch();
       setCurrInput("");
       setCurrWordIndex(currWordIndex + 1);
@@ -133,12 +184,20 @@ const Home: NextPage = () => {
     }
 
     // backspace
-    else if (event.keyCode === 8) {
-      setCurrCharIndex(currCharIndex - 1);
+    else if (charCode === 8) {
+      setCurrCharIndex(Math.max(-1, currCharIndex - 1));
       setCurrChar("");
-    } else {
+    }
+
+    // a-z or '
+    else if ((charCode > 64 && charCode < 91) || charCode === 222) {
       setCurrCharIndex(currCharIndex + 1);
       setCurrChar(event.key);
+    }
+
+    // out of scope
+    else {
+      event.preventDefault();
     }
   }
 
@@ -155,7 +214,7 @@ const Home: NextPage = () => {
     /* Create className value for current word */
 
     if (wordIdx === currWordIndex) {
-      return "text-[30px] text-[#319795]";
+      return "text-[30px] text-[#319795] ";
     }
   }
 
@@ -207,8 +266,69 @@ const Home: NextPage = () => {
     return <h2> Select the number of words: {sliderValue}</h2>;
   }
 
+  useEffect(() => {
+    /*
+      Set the base url
+      TODO:
+        refactor how we do this.
+    */
+    setBaseUrl(window.location.href);
+    if (words.length == 0) {
+      generateWords(sliderValue);
+    }
+  }, [sliderValue]);
+
+  useEffect(() => {
+    // Updates user's high score
+    if (session && status == "finished") {
+      let wpm = correct;
+      let accuracy = (correct / (correct + incorrect)) * 100;
+      let score = Math.round(wpm * accuracy);
+
+      if (!session.user?.highScore) {
+        updateHighScore(session.user?.id!, score);
+      } else if (wpm * accuracy > session.user?.highScore!) {
+        updateHighScore(session.user?.id!, score);
+      }
+    }
+  }, [status, session]);
+
+  useEffect(() => {
+    /*
+      Initialize item in session storage for keeping
+      track of characters the user failed.
+    */
+    sessionStorage.setItem("failedChars", "");
+  }, []);
+
+  useEffect(() => {
+    const octokit = new Octokit({});
+    const fetchRepoData = async () => {
+      const response = await octokit.request(
+        "GET /repos/{owner}/{repo}/commits",
+        {
+          owner: "antonio-hickey",
+          repo: "Typist",
+        }
+      );
+      if (response !== null) {
+        setLastCommitData({
+          commiter: response.data[0]?.author?.html_url!,
+          message: response.data[0]?.commit.message!,
+          hash: response.data[0]?.sha!,
+          avatar: response.data[0]?.author?.avatar_url!,
+          url: response.data[0]?.html_url!,
+        });
+      }
+    };
+    fetchRepoData();
+    if (!leaderboard) {
+      getLeaderboard();
+    }
+  }, [leaderboard]);
+
   return (
-    <>
+    <div className="mainBodyDark flex flex-col min-h-[100vh] max-h-[100vh] justify-between h-screen">
       <Head>
         <title>Typist</title>
         <meta
@@ -218,14 +338,69 @@ const Home: NextPage = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <ChakraProvider theme={theme}>
-        <Box textAlign="center" fontSize="xl">
-          <Grid minH="100vh" p={3}>
-            <ColorModeSwitcher justifySelf="flex-end" aria-label="test" />
-            <VStack spacing={8}>
+      <Box className="bg-darkBgAlpha text-center py-4">
+        <div className="flex flex-row w-100">
+          <div className="mx-auto">
+            <h1 className="ml-[11rem] font-extrabold text-4xl text-[#319795]">
+              Typist
+            </h1>
+          </div>
+          <div>
+            <Button className="mr-5" onClick={() => onLeaderboardOpen()}>
+              Rankings
+            </Button>
+          </div>
+          {session ? (
+            <Menu>
+              <MenuButton>
+                <Avatar
+                  size="sm"
+                  className="mr-5 mt-1"
+                  name={session.user?.name ? session.user.name : ""}
+                  src={session.user?.image ? session.user.image : ""}
+                />
+              </MenuButton>
+              <MenuList>
+                <MenuItem onClick={() => signOut()}>Sign Out</MenuItem>
+              </MenuList>
+            </Menu>
+          ) : (
+            <Button className="mr-5 pl-5" onClick={() => signIn()}>
+              Sign In
+            </Button>
+          )}
+        </div>
+      </Box>
+
+      <div className="flex flex-col m-auto">
+        <Box
+          textAlign="center"
+          fontSize="xl"
+          maxW="4xl"
+          w="4xl"
+          borderWidth="2px"
+          borderRadius="xl"
+          boxShadow="dark-lg"
+          borderColor="gray.500"
+          backgroundColor="rgba(26, 32, 44, 0.85)"
+          alignContent={"center"}
+          alignItems={"center"}
+          alignSelf={"center"}
+          justifyContent={"center"}
+          p={10}
+        >
+          <div className="flex flex-col m-auto">
+            <VStack spacing={10}>
               <div className="flex justify-center items-center">
-                <div className="pb-[20px] text-[120px] text-center text-[#319795]">
-                  <h2>{countDown}</h2>
+                <div className="pb-[20px] text-[120px] text-center">
+                  <CircularProgress
+                    value={timeLeftPerc}
+                    trackColor={"RGBA(0, 0, 0, 0.34)"}
+                    color="#319795"
+                    size="200px"
+                  >
+                    <CircularProgressLabel>{countDown}</CircularProgressLabel>
+                  </CircularProgress>
                 </div>
               </div>
 
@@ -240,8 +415,8 @@ const Home: NextPage = () => {
                         min={10}
                         max={200}
                         step={10}
-                        colorScheme="teal"
-                        onChange={(v) => setSliderValue(v)}
+                        colorScheme="solidteal"
+                        onChange={(v: number) => setSliderValue(v)}
                         onMouseEnter={() => setShowTooltip(true)}
                         onMouseLeave={() => setShowTooltip(false)}
                         isDisabled={status === "started"}
@@ -278,32 +453,36 @@ const Home: NextPage = () => {
               </div>
               <div className="flex justify-center items-center">
                 {!hidden ? (
-                  <Button onClick={start} colorScheme="teal">
+                  <Button
+                    onClick={start}
+                    colorScheme="btnteal"
+                    className="!hover:bg-violet-600"
+                  >
                     Start Typing!
                   </Button>
                 ) : null}
               </div>
               {status === "started" && (
                 <div className="flex justify-center items-center">
-                  <div className="card">
-                    <div className="card-content">
-                      <div className={getContentClass()}>
-                        {words.map((word, i) => (
-                          <span key={i}>
-                            <span className={getWordClass(i)}>
-                              {word.split("").map((char, idx) => (
-                                <span
-                                  className={getCharClass(i, idx, char)}
-                                  key={idx}
-                                >
-                                  {char}
-                                </span>
-                              ))}
-                            </span>
-                            <span> </span>
+                  <div className="px-5">
+                    <div
+                      className={`${getContentClass()} rounded-lg px-5 py-2`}
+                    >
+                      {words.map((word, i) => (
+                        <span key={i}>
+                          <span className={getWordClass(i)}>
+                            {word.split("").map((char, idx) => (
+                              <span
+                                className={getCharClass(i, idx, char)}
+                                key={idx}
+                              >
+                                {char}
+                              </span>
+                            ))}
                           </span>
-                        ))}
-                      </div>
+                          <span> </span>
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -329,10 +508,94 @@ const Home: NextPage = () => {
                 </div>
               )}
             </VStack>
-          </Grid>
+          </div>
         </Box>
-      </ChakraProvider>
-    </>
+      </div>
+
+      <Modal isOpen={isLeaderboardOpen} onClose={onLeaderboardClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Leaderboard</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <TableContainer>
+              <Table variant="simple" size="sm">
+                <Thead>
+                  <Tr>
+                    <Th></Th>
+                    <Th>Name</Th>
+                    <Th isNumeric>Score</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {leaderboard != null
+                    ? leaderboard.map((user, i) => {
+                        return (
+                          <Tr key={i}>
+                            <Td>
+                              <Avatar
+                                size="xs"
+                                name={user.name ? user.name : ""}
+                                src={user.image ? user.image : ""}
+                              />
+                            </Td>
+                            <Td>{user.name}</Td>
+                            <Td isNumeric>{user.highScore}</Td>
+                          </Tr>
+                        );
+                      })
+                    : null}
+                </Tbody>
+                <Tfoot></Tfoot>
+              </Table>
+            </TableContainer>
+          </ModalBody>
+          <ModalFooter></ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <footer className="bg-darkBgAlpha text-center">
+        <Stack direction={"row"} className="!text-center px-5 pt-7 pb-3">
+          <Text className="pl-5">Last Commit:</Text>
+          <a href={lastCommitData?.commiter}>
+            <Avatar
+              src={lastCommitData?.avatar}
+              size="sm"
+              className="!mt-[-0.2rem]"
+            />
+          </a>
+          <Badge colorScheme={"teal"} className="h-5 !mt-[0.17rem] !lowercase">
+            <a href={lastCommitData?.url}>{lastCommitData?.hash.slice(0, 7)}</a>
+          </Badge>
+          <Text>
+            <a
+              href={lastCommitData?.url}
+              className="underline underline-offset-2"
+            >
+              {lastCommitData?.message}
+            </a>
+          </Text>
+          <Spacer />
+          <Center height="2rem">
+            <Divider orientation="vertical" />
+          </Center>
+          <Spacer />
+          <Text className="underline underline-offset-4">
+            <a href="https://github.com/antonio-hickey/Typist">
+              View source code on GitHub
+            </a>
+          </Text>
+          <IconButton
+            variant="subtle"
+            colorScheme="teal"
+            aria-label="GitHub"
+            fontSize="2.5rem"
+            icon={<Icon as={FaGithub} className="!mt-[-0.75rem]" />}
+            className="!pr-1.5"
+          />
+        </Stack>
+      </footer>
+    </div>
   );
 };
 
