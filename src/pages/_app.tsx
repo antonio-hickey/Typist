@@ -2,11 +2,41 @@
 import { withTRPC } from "@trpc/next";
 import type { AppRouter } from "../server/router";
 import type { AppType } from "next/dist/shared/lib/utils";
+import { SessionProvider } from "next-auth/react";
 import superjson from "superjson";
 import "../styles/globals.css";
+import { ChakraProvider, extendTheme } from "@chakra-ui/react";
 
-const MyApp: AppType = ({ Component, pageProps }) => {
-  return <Component {...pageProps} />;
+const colors = {
+  solidteal: {
+    100: "#319795",
+    200: "#319795",
+    300: "#319795",
+    400: "#319795",
+    500: "#319795",
+    600: "#319795",
+    700: "#319795",
+    800: "#319795",
+  },
+  btnteal: {
+    200: "#319795",
+    300: "#2b7978",
+  },
+};
+
+const theme = extendTheme({ colors });
+
+const MyApp: AppType = ({
+  Component,
+  pageProps: { session, ...pageProps },
+}) => {
+  return (
+    <ChakraProvider theme={theme}>
+      <SessionProvider session={session}>
+        <Component {...pageProps} />
+      </SessionProvider>
+    </ChakraProvider>
+  );
 };
 
 const getBaseUrl = () => {
