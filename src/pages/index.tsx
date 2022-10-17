@@ -1,8 +1,22 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 
+import { useSession, signIn, signOut } from "next-auth/react";
+import { User } from "@prisma/client";
+
 import React, { useState, useEffect } from "react";
 import {
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
   Box,
   Button,
   Slider,
@@ -23,6 +37,15 @@ import {
   Center,
   Divider,
   IconButton,
+  useDisclosure,
+  Table,
+  Thead,
+  Tbody,
+  Tfoot,
+  Tr,
+  Th,
+  Td,
+  TableContainer,
 } from "@chakra-ui/react";
 
 import { FaGithub } from "react-icons/fa";
@@ -37,6 +60,7 @@ interface gitRepoData {
 }
 
 const Home: NextPage = () => {
+  const { data: session } = useSession();
   const [words, setWords] = useState<string[]>([]);
   const [countDown, setCountDown] = useState(60);
   const [currInput, setCurrInput] = useState("");
@@ -52,49 +76,12 @@ const Home: NextPage = () => {
   const [baseUrl, setBaseUrl] = useState<string>("");
   const [timeLeftPerc, setTimeLeftPerc] = useState(100);
   const [lastCommitData, setLastCommitData] = useState<gitRepoData>();
-
-  useEffect(() => {
-    /*
-      Set the base url
-      TODO:
-        refactor how we do this.
-    */
-    setBaseUrl(window.location.href);
-    if (words.length == 0) {
-      generateWords(sliderValue);
-    }
-  }, [sliderValue]);
-
-  useEffect(() => {
-    /*
-      Initialize item in session storage for keeping
-      track of characters the user failed.
-    */
-    sessionStorage.setItem("failedChars", "");
-  }, []);
-
-  useEffect(() => {
-    const octokit = new Octokit({});
-    const fetchRepoData = async () => {
-      const response = await octokit.request(
-        "GET /repos/{owner}/{repo}/commits",
-        {
-          owner: "antonio-hickey",
-          repo: "Typist",
-        }
-      );
-      if (response !== null) {
-        setLastCommitData({
-          commiter: response.data[0]?.author?.html_url!,
-          message: response.data[0]?.commit.message!,
-          hash: response.data[0]?.sha!,
-          avatar: response.data[0]?.author?.avatar_url!,
-          url: response.data[0]?.html_url!,
-        });
-      }
-    };
-    fetchRepoData();
-  }, []);
+  const [leaderboard, setLeaderboard] = useState<User[] | null>(null);
+  const {
+    isOpen: isLeaderboardOpen,
+    onOpen: onLeaderboardOpen,
+    onClose: onLeaderboardClose,
+  } = useDisclosure();
 
   function setInputFocus(input: HTMLInputElement | null) {
     /* Sets the text input to focus */
@@ -102,6 +89,24 @@ const Home: NextPage = () => {
       input?.focus();
     }
   }
+
+  const updateHighScore = (userId: string, highScore: number) => {
+    fetch(baseUrl + "/api/score/update", {
+      method: "post",
+      body: JSON.stringify({
+        userId: userId,
+        highScore: highScore,
+      }),
+    });
+  };
+
+  const getLeaderboard = () => {
+    fetch(baseUrl + "/api/score/leaderboard")
+      .then((resp) => resp.json())
+      .then((data) => {
+        setLeaderboard(data.users);
+      });
+  };
 
   function generateWords(val: number) {
     /* Generate initial random array of words */
@@ -266,6 +271,68 @@ const Home: NextPage = () => {
     return <h2> Select the number of words: {sliderValue}</h2>;
   }
 
+  useEffect(() => {
+    /*
+      Set the base url
+      TODO:
+        refactor how we do this.
+    */
+    setBaseUrl(window.location.href);
+    if (words.length == 0) {
+      generateWords(sliderValue);
+    }
+  }, [sliderValue]);
+
+  useEffect(() => {
+    // Updates user's high score
+    if (session && status == "finished") {
+      let wpm = correct;
+      let accuracy = (correct / (correct + incorrect)) * 100;
+      let score = Math.round(wpm * accuracy);
+
+      if (!session.user?.highScore) {
+        updateHighScore(session.user?.id!, score);
+      } else if (wpm * accuracy > session.user?.highScore!) {
+        updateHighScore(session.user?.id!, score);
+      }
+    }
+  }, [status, session]);
+
+  useEffect(() => {
+    /*
+      Initialize item in session storage for keeping
+      track of characters the user failed.
+    */
+    sessionStorage.setItem("failedChars", "");
+  }, []);
+
+  useEffect(() => {
+    const octokit = new Octokit({});
+    const fetchRepoData = async () => {
+      const response = await octokit.request(
+        "GET /repos/{owner}/{repo}/commits",
+        {
+          owner: "antonio-hickey",
+          repo: "Typist",
+        }
+      );
+      if (response !== null) {
+        setLastCommitData({
+          commiter: response.data[0]?.author?.html_url!,
+          message: response.data[0]?.commit.message!,
+          hash: response.data[0]?.sha!,
+          avatar: response.data[0]?.author?.avatar_url!,
+          url: response.data[0]?.html_url!,
+        });
+      }
+    };
+    fetchRepoData();
+  }, []);
+
+  useEffect(() => {
+    if (!leaderboard) getLeaderboard();
+  }, [leaderboard]);
+
   return (
     <div className="mainBodyDark flex flex-col min-h-[100vh] max-h-[100vh] justify-between h-screen">
       <Head>
@@ -278,11 +345,37 @@ const Home: NextPage = () => {
       </Head>
 
       <Box className="bg-darkBgAlpha text-center py-4">
-        <HStack spacing={8} className="pl-5">
-          <Spacer />
-          <h1 className="font-extrabold text-4xl text-[#319795]">Typist</h1>
-          <Spacer />
-        </HStack>
+        <div className="flex flex-row w-100">
+          <div className="mx-auto">
+            <h1 className="ml-[11rem] font-extrabold text-4xl text-[#319795]">
+              Typist
+            </h1>
+          </div>
+          <div>
+            <Button className="mr-5" onClick={() => onLeaderboardOpen()}>
+              Rankings
+            </Button>
+          </div>
+          {session ? (
+            <Menu>
+              <MenuButton>
+                <Avatar
+                  size="sm"
+                  className="mr-5 mt-1"
+                  name={session.user?.name ? session.user.name : ""}
+                  src={session.user?.image ? session.user.image : ""}
+                />
+              </MenuButton>
+              <MenuList>
+                <MenuItem onClick={() => signOut()}>Sign Out</MenuItem>
+              </MenuList>
+            </Menu>
+          ) : (
+            <Button className="mr-5 pl-5" onClick={() => signIn()}>
+              Sign In
+            </Button>
+          )}
+        </div>
       </Box>
 
       <div className="flex flex-col m-auto">
@@ -424,6 +517,48 @@ const Home: NextPage = () => {
           </div>
         </Box>
       </div>
+
+      <Modal isOpen={isLeaderboardOpen} onClose={onLeaderboardClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Leaderboard</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <TableContainer>
+              <Table variant="simple" size="sm">
+                <Thead>
+                  <Tr>
+                    <Th></Th>
+                    <Th>Name</Th>
+                    <Th isNumeric>Score</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {leaderboard != null
+                    ? leaderboard.map((user, i) => {
+                        return (
+                          <Tr key={i}>
+                            <Td>
+                              <Avatar
+                                size="xs"
+                                name={user.name ? user.name : ""}
+                                src={user.image ? user.image : ""}
+                              />
+                            </Td>
+                            <Td>{user.name}</Td>
+                            <Td isNumeric>{user.highScore}</Td>
+                          </Tr>
+                        );
+                      })
+                    : null}
+                </Tbody>
+                <Tfoot></Tfoot>
+              </Table>
+            </TableContainer>
+          </ModalBody>
+          <ModalFooter></ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <footer className="bg-darkBgAlpha text-center">
         <Stack direction={"row"} className="!text-center px-5 pt-7 pb-3">
