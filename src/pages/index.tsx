@@ -27,7 +27,6 @@ import {
   VStack,
   CircularProgress,
   CircularProgressLabel,
-  HStack,
   Spacer,
   Stack,
   Icon,
@@ -60,6 +59,13 @@ interface gitRepoData {
 }
 
 const Home: NextPage = () => {
+  const [width, setWidth] = useState(
+    typeof window === "undefined" ? 0 : window.innerWidth
+  );
+  const [height, setHeight] = useState(
+    typeof window === "undefined" ? 0 : window.innerHeight
+  );
+  const [isMobile, setIsMobile] = useState<boolean | null>(null);
   const { data: session } = useSession();
   const [words, setWords] = useState<string[]>([]);
   const [countDown, setCountDown] = useState(60);
@@ -82,6 +88,13 @@ const Home: NextPage = () => {
     onOpen: onLeaderboardOpen,
     onClose: onLeaderboardClose,
   } = useDisclosure();
+
+  const updateDimensions = () => {
+    if (typeof window !== "undefined") {
+      setWidth(window.innerWidth);
+      setHeight(window.innerHeight);
+    }
+  };
 
   function setInputFocus(input: HTMLInputElement | null) {
     /* Sets the text input to focus */
@@ -272,6 +285,17 @@ const Home: NextPage = () => {
   }
 
   useEffect(() => {
+    // Check if on small screen
+    window.addEventListener("resize", updateDimensions);
+    if (width < 768) {
+      setIsMobile(true);
+    } else {
+      setIsMobile(false);
+    }
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, [width]);
+
+  useEffect(() => {
     /*
       Set the base url
       TODO:
@@ -347,9 +371,15 @@ const Home: NextPage = () => {
       <Box className="bg-darkBgAlpha text-center py-4">
         <div className="flex flex-row w-100">
           <div className="mx-auto">
-            <h1 className="ml-[11rem] font-extrabold text-4xl text-[#319795]">
-              Typist
-            </h1>
+            {isMobile ? (
+              <h1 className="mr-[8rem] font-extrabold text-4xl text-[#319795]">
+                Typist
+              </h1>
+            ) : (
+              <h1 className="ml-[11rem] font-extrabold text-4xl text-[#319795]">
+                Typist
+              </h1>
+            )}
           </div>
           <div>
             <Button className="mr-5" onClick={() => onLeaderboardOpen()}>
@@ -383,7 +413,7 @@ const Home: NextPage = () => {
           textAlign="center"
           fontSize="xl"
           maxW="4xl"
-          w="4xl"
+          w={["sm", "lg", "2xl", "4xl"]}
           borderWidth="2px"
           borderRadius="xl"
           boxShadow="dark-lg"
@@ -562,30 +592,40 @@ const Home: NextPage = () => {
 
       <footer className="bg-darkBgAlpha text-center">
         <Stack direction={"row"} className="!text-center px-5 pt-7 pb-3">
-          <Text className="pl-5">Last Commit:</Text>
-          <a href={lastCommitData?.commiter}>
-            <Avatar
-              src={lastCommitData?.avatar}
-              size="sm"
-              className="!mt-[-0.2rem]"
-            />
-          </a>
-          <Badge colorScheme={"teal"} className="h-5 !mt-[0.17rem] !lowercase">
-            <a href={lastCommitData?.url}>{lastCommitData?.hash.slice(0, 7)}</a>
-          </Badge>
-          <Text>
-            <a
-              href={lastCommitData?.url}
-              className="underline underline-offset-2"
-            >
-              {lastCommitData?.message}
-            </a>
-          </Text>
+          {isMobile ? null : (
+            <>
+              <Text className="pl-5">Last Commit:</Text>
+              <a href={lastCommitData?.commiter}>
+                <Avatar
+                  src={lastCommitData?.avatar}
+                  size="sm"
+                  className="!mt-[-0.2rem]"
+                />
+              </a>
+              <Badge
+                colorScheme={"teal"}
+                className="h-5 !mt-[0.17rem] !lowercase"
+              >
+                <a href={lastCommitData?.url}>
+                  {lastCommitData?.hash.slice(0, 7)}
+                </a>
+              </Badge>
+              <Text>
+                <a
+                  href={lastCommitData?.url}
+                  className="underline underline-offset-2"
+                >
+                  {lastCommitData?.message}
+                </a>
+              </Text>
+              <Spacer />
+              <Center height="2rem">
+                <Divider orientation="vertical" />
+              </Center>
+            </>
+          )}
           <Spacer />
-          <Center height="2rem">
-            <Divider orientation="vertical" />
-          </Center>
-          <Spacer />
+
           <Text className="underline underline-offset-4">
             <a href="https://github.com/antonio-hickey/Typist">
               View source code on GitHub
